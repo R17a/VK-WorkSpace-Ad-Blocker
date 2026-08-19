@@ -238,6 +238,37 @@
       return false;
     }
 
+    // Классическая вёрстка e.mail.ru именует элементы ОТКРЫТОГО письма BEM-
+    // блоком "letter__..." (двойное подчёркивание), в отличие от строк
+    // списка "letter-list-item" (дефис).
+    //
+    // Реальный случай: у mail.ru свой виджет "нативной рекламы"
+    // (рекомендации, r.mradx.net) с текстом "Мы используем ваши ответы,
+    // чтобы подбирать для вас подходящую рекламу". Когда его скрипт не
+    // загрузился (заблокирован сторонним блокировщиком — НЕ нами, мы
+    // никогда не блокируем сеть), собственный код mail.ru
+    // (t.handlePlacementFail) перерисовывает fallback-разметку этого
+    // виджета. climbToContainer поднимался по её тексту "Реклама" и прятал
+    // ближайший подходящий по размеру контейнер — но этот контейнер
+    // оказался ОБЩИМ родителем и для виджета, и для панели открытого
+    // письма (общая колонка вёрстки). В результате прятался не только
+    // виджет, а вся панель письма целиком — то же самое, что раньше
+    // случилось с <body> из-за vkAuth.html (см. isForbiddenRoot), только
+    // на уровень ниже. Отдельной проверки "текст внутри letter__" (см.
+    // inSafeZone) здесь недостаточно: опасный текст был СНАРУЖИ письма, а
+    // не внутри него.
+    //
+    // Поэтому запрещаем считать контейнером-обёрткой любой элемент, который
+    // сам СОДЕРЖИТ открытое письмо как потомка — по тому же принципу, что и
+    // containsMultipleLetterItems() для списка: если внутри найденного
+    // "рекламного" контейнера прячется письмо целиком, это не рекламная
+    // карточка, а общий layout-контейнер, который нельзя трогать.
+    const LETTER_VIEW_SELECTOR = '[class*="letter__"]';
+
+    function containsLetterView(el) {
+      return !!(el.querySelectorAll && el.querySelector(LETTER_VIEW_SELECTOR));
+    }
+
     // ЖЁСТКИЙ, БЕЗУСЛОВНЫЙ запрет: никогда не считаем <body>/<html>/<head>
     // валидным "рекламным контейнером", независимо от размера. Реальный
     // случай: iframe авторизации VK ID (vkAuth.html) отдаётся с домена
@@ -281,6 +312,16 @@
             // пропускаем этого кандидата и продолжаем подниматься... но
             // выше будет только крупнее, так что просто отказываемся.
             lastClimbFailReason = 'multi-letter-items-blocked:' + el.tagName + '.' + String(el.className).slice(0, 40);
+            return null;
+          }
+          if (containsLetterView(el)) {
+            // Контейнер оборачивает открытое письмо целиком (см. комментарий
+            // у containsLetterView) — реальный случай в узком окне PWA
+            // ("Установить страницу как приложение"): тот же контейнер по
+            // размеру подходил под лимиты и вмещал одновременно виджет
+            // "рекомендаций" mail.ru и панель письма, из-за чего вместе с
+            // виджетом пряталось и само письмо.
+            lastClimbFailReason = 'contains-letter-view:' + el.tagName + '.' + String(el.className).slice(0, 40);
             return null;
           }
           return el;
@@ -400,7 +441,18 @@
     // это и была та самая неуловимая "строчная" реклама.
     const SAFE_ZONE_CLASS_RE = /letter[-_]?list[-_]?item(?!-adv)\b/i;
 
+    // LETTER_VIEW_SELECTOR объявлен выше, рядом с containsLetterView() —
+    // тот же реальный случай (открытое письмо, которое само по себе
+    // содержит обязательную по ФЗ-38 плашку "Реклама", и текст внутри него
+    // не должен восприниматься как реклама сайта). closest() здесь идёт
+    // вверх без ограничения по глубине (в отличие от ручного цикла ниже) —
+    // тело письма в вёрстке почтовых HTML-писем может быть вложено глубже
+    // 12 уровней.
     function inSafeZone(el) {
+      if (el && el.closest) {
+        const letterEl = el.closest(LETTER_VIEW_SELECTOR);
+        if (letterEl) return { matched: 'letter__*', cls: letterEl.className, depth: -1 };
+      }
       let node = el;
       let depth = 0;
       while (node && depth < 12) {
@@ -502,7 +554,7 @@
         if (isForbiddenRoot(node)) return null;
         const r = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
         if (r && r.width >= 60 && r.width <= MAX_W && r.height >= 40 && r.height <= MAX_H) {
-          return containsMultipleLetterItems(node) ? null : node;
+          return containsMultipleLetterItems(node) || containsLetterView(node) ? null : node;
         }
         node = node.parentElement;
         depth++;
