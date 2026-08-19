@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "VK WorkSpace Ad Blocker",
+  "version": "1.0.0",
+  "description": "Постоянно вырезает рекламные баннеры (верхний и боковой фрейм) в app.workspace.vk.ru, используя обязательную по закону метку «Реклама» как устойчивый якорь, плюс скрытие известных рекламных изображений/фреймов по домену. Не блокирует сетевые запросы — только прячет уже отрисованные элементы, чтобы не сломать загрузку приложения.",
+  "permissions": ["storage", "scripting", "tabs"],
+  "host_permissions": [
+    "https://*.workspace.vk.ru/*",
+    "https://*.cdn-vk.ru/*",
+    "https://e.mail.ru/*",
+    "https://*.imgsmail.ru/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.workspace.vk.ru/*",
+        "https://*.cdn-vk.ru/*",
+        "https://e.mail.ru/*",
+        "https://*.imgsmail.ru/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "options.html",
+    "default_title": "VK WorkSpace Ad Blocker"
+  }
+}
