@@ -269,6 +269,23 @@
       return !!(el.querySelectorAll && el.querySelector(LETTER_VIEW_SELECTOR));
     }
 
+    // Реальный случай (2026-08-19): открытое окно "Ответить" (compose)
+    // показывает аватарку адресата, взятую с filin.mail.ru по формату URL
+    // (?user=...&email=...&trust=true&sign=...), который AVATAR_URL_RE не
+    // распознавал (тот знал только формат "?from=ph" из списка писем). Из-за
+    // этого аватарка в compose-окне считалась рекламной картинкой, и
+    // climbToContainer поднимался до самого compose-попапа целиком (он
+    // укладывался в лимиты MAX_W/MAX_H) — окно ответа пряталось полностью
+    // (display:none), хотя реклама тут ни при чём. По тому же принципу, что
+    // и LETTER_VIEW_SELECTOR для открытого письма, запрещаем считать
+    // контейнером-обёрткой что угодно, что содержит открытое compose-окно
+    // как потомка.
+    const COMPOSE_VIEW_SELECTOR = '[class*="compose-app"]';
+
+    function containsComposeView(el) {
+      return !!(el.querySelectorAll && el.querySelector(COMPOSE_VIEW_SELECTOR));
+    }
+
     // ЖЁСТКИЙ, БЕЗУСЛОВНЫЙ запрет: никогда не считаем <body>/<html>/<head>
     // валидным "рекламным контейнером", независимо от размера. Реальный
     // случай: iframe авторизации VK ID (vkAuth.html) отдаётся с домена
@@ -322,6 +339,13 @@
             // "рекомендаций" mail.ru и панель письма, из-за чего вместе с
             // виджетом пряталось и само письмо.
             lastClimbFailReason = 'contains-letter-view:' + el.tagName + '.' + String(el.className).slice(0, 40);
+            return null;
+          }
+          if (containsComposeView(el)) {
+            // Контейнер оборачивает открытое окно "Ответить"/"Написать
+            // письмо" целиком (см. комментарий у containsComposeView) —
+            // не даём его спрятать.
+            lastClimbFailReason = 'contains-compose-view:' + el.tagName + '.' + String(el.className).slice(0, 40);
             return null;
           }
           return el;
@@ -421,7 +445,12 @@
     // filin.mail.ru отдаёт и аватарки отправителей (?from=ph&width=45&
     // height=45...), и рекламные картинки (?d=...) — с одного домена.
     // Аватарки нельзя трогать, иначе прячем настоящие письма в списке.
-    const AVATAR_URL_RE = /[?&]from=ph\b/i;
+    // Второй, отдельный формат аватарок filin.mail.ru — подписанный URL вида
+    // "?user=...&email=...&trust=true&sign=...&width=90&height=90&name=..."
+    // (используется, например, для аватарки адресата в открытом окне
+    // "Ответить" — см. COMPOSE_VIEW_SELECTOR). Признак "trust=true" реальным
+    // рекламным картинкам ("?d=...") не свойственен.
+    const AVATAR_URL_RE = /[?&](from=ph\b|trust=true\b)/i;
     // ad.mail.ru отдаёт не только рекламу, но и легитимный iframe
     // авторизации VK ID (.../dist/vkAuth.html) — реальный случай, из-за
     // которого climbToContainer однажды поднялся до <body> и спрятал всю
@@ -452,6 +481,8 @@
       if (el && el.closest) {
         const letterEl = el.closest(LETTER_VIEW_SELECTOR);
         if (letterEl) return { matched: 'letter__*', cls: letterEl.className, depth: -1 };
+        const composeEl = el.closest(COMPOSE_VIEW_SELECTOR);
+        if (composeEl) return { matched: 'compose-app*', cls: composeEl.className, depth: -1 };
       }
       let node = el;
       let depth = 0;
@@ -554,7 +585,7 @@
         if (isForbiddenRoot(node)) return null;
         const r = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
         if (r && r.width >= 60 && r.width <= MAX_W && r.height >= 40 && r.height <= MAX_H) {
-          return containsMultipleLetterItems(node) || containsLetterView(node) ? null : node;
+          return containsMultipleLetterItems(node) || containsLetterView(node) || containsComposeView(node) ? null : node;
         }
         node = node.parentElement;
         depth++;
