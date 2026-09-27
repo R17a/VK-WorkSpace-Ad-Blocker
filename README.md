@@ -6,15 +6,14 @@
 <center>
 <table border="0">
   <tr><td>
-<p align="center">
   <a href="https://www.donationalerts.com/r/dmitriy_r17a">
     <img src="https://www.donationalerts.com/img/brand/donationalerts.svg" alt="DonationAlerts" height="44">
-  </a>
-</p></td><td>&nbsp;&nbsp;</td><td>
+  </a></td>
+<td>&nbsp;&nbsp;</td>
+<td>
   <a href="https://pay.cloudtips.ru/p/dcbf5f2e">
     <img src="https://static.tildacdn.com/tild3431-6231-4938-b464-663831306266/Horiz.svg" alt="CloudTips" height="44">
   </a>
-</p>
 </td></tr></table>
 </center>
 
