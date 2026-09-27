@@ -3,7 +3,8 @@
 Проект развивается на энтузиазме. Если он оказался полезным — можно поддержать
 разработку:
 
-<table>
+<center>
+<table border="0">
   <tr><td>
 <p align="center">
   <a href="https://www.donationalerts.com/r/dmitriy_r17a">
@@ -15,6 +16,7 @@
   </a>
 </p>
 </td></tr></table>
+</center>
 
 # VK WorkSpace Ad Blocker
 
